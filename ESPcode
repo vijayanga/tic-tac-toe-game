@@ -1,0 +1,150 @@
+#include <Arduino.h>
+#if defined(ESP32)
+  #include <WiFi.h>
+#elif defined(ESP8266)
+  #include <ESP8266WiFi.h>
+#endif
+#include <Firebase_ESP_Client.h>
+
+// Provide the token generation process info.
+#include "addons/TokenHelper.h"
+// Provide the RTDB payload printing info and other helper functions.
+#include "addons/RTDBHelper.h"
+
+// Insert your network credentials
+#define WIFI_SSID "Heee"
+#define WIFI_PASSWORD "huna2000"
+
+// Insert Firebase project API Key
+#define API_KEY "AIzaSyBeGTfCh3QJFG7UGmI23tl1lV795iqiBKg"
+
+// Insert RTDB URL
+#define DATABASE_URL "https://newone-1757e-default-rtdb.asia-southeast1.firebasedatabase.app/"
+
+// Define Firebase Data object
+FirebaseData fbdo;
+
+FirebaseAuth auth;
+FirebaseConfig config;
+
+int scores[4] = {0, 0, 0, 0}; // Array to hold the top 4 scores
+int count5; // Marks received from Arduino Uno
+int mode; // Mode received from Arduino Uno
+bool signupOK = false;
+bool processCompleted = false;
+
+void setup() {
+  Serial.begin(9600);
+  Serial2.begin(9600, SERIAL_8N1, 16, 17); // Communication with Arduino Uno
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  // Assign the API key and RTDB URL
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
+
+  // Sign up
+  if (Firebase.signUp(&config, &auth, "", "")) {
+    Serial.println("ok");
+    signupOK = true;
+  } else {
+    Serial.printf("%s\n", config.signer.signupError.message.c_str());
+  }
+
+  // Assign the callback function for the long running token generation task
+  config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
+  
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+}
+
+void loop() {
+  if (Serial2.available() > 0 && !processCompleted) {
+    String data = Serial2.readStringUntil('\n'); // Read incoming data
+    int delimiterIndex = data.indexOf(',');
+    mode = data.substring(0, delimiterIndex).toInt(); // Extract mode
+    count5 = data.substring(delimiterIndex + 1).toInt(); // Extract marks
+    processCompleted = true;
+  }
+
+  if (Firebase.ready() && signupOK && processCompleted) {
+    // Retrieve and update scores based on mode
+    switch (mode) {
+      case 1:
+        updateScores("scoreseasy");
+        break;
+      case 2:
+        updateScores("scoreshard");
+        break;
+      case 3:
+        updateScores("scoresrfid");
+        break;
+      case 4:
+        updateScores("scoresnorfid");
+        break;
+    }
+
+    // Send the updated high scores to Arduino Uno
+    for (int i = 0; i < 4; i++) {
+      Serial2.println(scores[i]);
+    }
+    processCompleted = false;
+  }
+
+  delay(1000); // Small delay to avoid tight loop
+}
+
+void updateScores(String pathPrefix) {
+  // Retrieve existing scores from Firebase
+  for (int i = 0; i < 4; i++) {
+    String path = pathPrefix + "/score" + String(i + 1);
+    if (Firebase.RTDB.getInt(&fbdo, path)) {
+      scores[i] = fbdo.intData();
+    } else {
+      Serial.println("Failed to get score: " + fbdo.errorReason());
+    }
+  }
+
+  // Check if count5 is greater than any of the top 4 scores
+  bool replaced = false;
+  for (int i = 0; i < 4; i++) {
+    if (count5 > scores[i]) {
+      // Shift the lower scores down
+      for (int j = 3; j > i; j--) {
+        scores[j] = scores[j - 1];
+      }
+      scores[i] = count5;
+      replaced = true;
+      break;
+    }
+  }
+
+  // If count5 replaced a score, store the updated scores back in Firebase
+  if (replaced) {
+    for (int i = 0; i < 4; i++) {
+      String path = pathPrefix + "/score" + String(i + 1);
+      if (Firebase.RTDB.setInt(&fbdo, path, scores[i])) {
+        Serial.println("Stored score" + String(i + 1) + ": " + scores[i]);
+      } else {
+        Serial.println("Failed to store score: " + fbdo.errorReason());
+      }
+    }
+  }
+
+  // Print the top 4 scores
+  Serial.println("Top 4 scores:");
+  for (int i = 0; i < 4; i++) {
+    Serial.print("score");
+    Serial.print(i + 1);
+    Serial.print(": ");
+    Serial.println(scores[i]);
+  }
+}
