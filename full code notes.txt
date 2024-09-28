@@ -1,0 +1,2190 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Adafruit_NeoPixel.h>
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+int countx=0;
+
+int tictac[10];
+boolean s2_flag, s3_flag , s4_flag , s5_flag , s6_flag , s7_flag , s8_flag , s9_flag , s10_flag ,winner_flag;
+int s2, s3, s4,s5,s6,s7,s8,s9,s10;
+int count = 0 ; 
+int countc=0;
+
+String winner;
+int P1_points = 0 , P2_points = 0 ;
+char sx, control ;
+int play=0;
+int marks; 
+int mode;
+int receivedScores[4] = {0, 0, 0, 0};  // Array to hold the received scores
+bool initialSent = false;
+bool processCompleted = false;
+bool processCompleted2 = false;
+bool processCompleted3 = false;
+#define PIN     13 
+#define NUM_LEDS 45     
+#define LDR_PIN A0
+unsigned long turn_start_time; // Variable to keep track of the turn start time
+const unsigned long turn_timeout = 11000; 
+#define LED_PATTERN_PIN 24
+#define BUTTON_PIN 25
+#define LED_PATTERN_NUM_LEDS 180
+#define LED_PATTERN_BRIGHTNESS 64
+
+int ledPatternButtonState;
+int ledPatternLastButtonState = LOW;
+unsigned long ledPatternLastDebounceTime = 0;
+unsigned long ledPatternDebounceDelay = 50;
+int ledPattern = 0;
+
+
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_LEDS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel strip2 = Adafruit_NeoPixel(LED_PATTERN_NUM_LEDS, LED_PATTERN_PIN, NEO_GRB + NEO_KHZ800);
+
+bool button1_first = false;
+bool button1_second = false;
+bool button2_first = false;
+bool button2_second = false;
+
+#define ROWS 3
+#define COLUMNS 3
+#define RESET_PIN 12
+#define buzzer 11
+
+
+#define RST_PIN1 47
+#define SS_PIN1 46
+#define RST_PIN2 49
+#define SS_PIN2 48
+
+int red1, red2;
+int green1 , green2;
+int blue1, blue2;
+
+
+bool red_first =false;
+bool blue_first = false;
+bool green_first = false;
+bool yellow_first = false;
+bool purple_first =false;
+bool orange_first = false;
+bool pink_first = false;
+bool red_second =false;
+bool blue_second = false;
+bool green_second = false;
+bool yellow_second = false;
+bool purple_second =false;
+bool orange_second = false;
+bool pink_second = false;
+
+int buttonState;
+int lastButtonState = LOW;
+unsigned long lastDebounceTime = 0;
+unsigned long debounceDelay = 50;
+int pattern = 0;
+int pattern2 = 0;
+unsigned long lastPatternUpdate = 0;
+unsigned long patternUpdateDelay = 100;
+
+int color=0;
+//bool player1=false;
+//bool player2=false;
+
+MFRC522 mfrc522_1(SS_PIN1, RST_PIN1); // Create MFRC522 instance for Reader 1
+MFRC522 mfrc522_2(SS_PIN2, RST_PIN2); // Create MFRC522 instance for Reader 2
+
+String card1 = "5314B00F"; // First card UID
+String card2 = "DA80931A"; // Second card UID
+String lastCardUID = ""; // Variable to store the last card UID that played
+String cardUID = ""; // Global variable for card UID
+
+// Pin Definition
+
+
+
+
+
+
+void setup()
+{
+  Serial.begin(9600);
+  Serial2.begin(9600);   // Initialize serial communications with the PC
+  SPI.begin();          // Init SPI bus
+  mfrc522_1.PCD_Init(); // Init MFRC522 for Reader 1
+  mfrc522_2.PCD_Init(); // Init MFRC522 for Reader 2
+  Serial.println("Scan an RFID card"); 
+
+  s2_flag = s3_flag = s4_flag = s5_flag = s6_flag = s7_flag =s8_flag = s9_flag =s10_flag = false ;
+
+  for (int i = 0 ; i < 9 ; i++) //clearing the array on reset
+    tictac[i] = 0 ;
+
+  Serial.begin(115200);
+
+  pinMode(2, INPUT);
+  pinMode(3, INPUT);
+  pinMode(4, INPUT);
+  pinMode(5, INPUT);
+  pinMode(6, INPUT);
+  pinMode(7, INPUT);
+  pinMode(8, INPUT);
+  pinMode(9, INPUT);
+  pinMode(10, INPUT);
+  pinMode(buzzer, OUTPUT);
+
+  digitalWrite(RESET_PIN, HIGH); // Initialize the RESET_PIN to HIGH
+  pinMode(RESET_PIN, OUTPUT); // Set the RESET_PIN as an output
+
+  pinMode(44, INPUT_PULLUP);
+  pinMode(45, INPUT_PULLUP);
+
+pinMode(24,OUTPUT);
+  pinMode(25, INPUT_PULLUP);
+
+
+  //color
+  // pinMode(24,INPUT_PULLUP);
+  // pinMode(25,INPUT_PULLUP);
+  // pinMode(26,INPUT_PULLUP);
+  // pinMode(27,INPUT_PULLUP);
+  // pinMode(28,INPUT_PULLUP);
+  // pinMode(29,INPUT_PULLUP);
+  // pinMode(30,INPUT_PULLUP);
+
+
+  strip.begin();
+  strip.show();
+  
+  strip2.begin();
+  strip2.setBrightness(LED_PATTERN_BRIGHTNESS);
+  strip2.show(); // Initialize all pixels to 'off'
+
+  Serial.begin(9600); // Initialize serial communication for debugging
+  
+
+  // defining all LED pins as output
+  
+  lcd.init();        // Initialize the LCD
+  lcd.backlight();   // Turn on the backlight
+
+  
+turn_start_time = millis(); 
+  lcd.init();        // Initialize the LCD
+  lcd.backlight();   // Turn on the backlight
+
+}
+
+void loop()
+{ 
+
+  
+  int ldrValue = analogRead(LDR_PIN); // Read the LDR value (0-1023)
+  int brightness = map(ldrValue, 0, 1023, 25, 255); // Map LDR value to brightness range (25-255)
+
+  int reading = digitalRead(BUTTON_PIN);
+  if (reading != ledPatternLastButtonState) {
+    ledPatternLastDebounceTime = millis();
+  }
+
+  if ((millis() - ledPatternLastDebounceTime) > ledPatternDebounceDelay) {
+    if (reading != ledPatternButtonState) {
+      ledPatternButtonState = reading;
+
+      if (ledPatternButtonState == LOW) {
+        ledPattern++;
+        if (ledPattern > 5) ledPattern = 0;
+      }
+    }
+  }
+
+  ledPatternLastButtonState = reading;
+
+  switch (ledPattern) {
+    case 0:
+      strip2.clear();
+      break;
+    case 1:
+      pattern1(brightness);
+      break;
+    case 2:
+      pattern22(brightness);
+      break;
+    case 3:
+      pattern3(brightness);
+      break;
+    case 4:
+      pattern4(brightness);
+      break;
+    case 5:
+      pattern5(brightness);
+      break;
+  }
+
+  strip2.show();
+      if(!red_first && !blue_first && !green_first && !yellow_first && !orange_first && !purple_first ){
+        lcd.setCursor(0, 0); 
+        lcd.print("player 1 = ");
+        lcd.setCursor(0, 1); 
+        lcd.print("player 2 = ");
+
+        if(pattern== 0){
+          lcd.setCursor(0, 2); 
+          lcd.print("Select player 1 ");
+          lcd.setCursor(0, 3); 
+          lcd.print("     ");
+          lcd.setCursor(5, 3); 
+          lcd.print("color");
+
+        }
+        
+
+
+             int reading = digitalRead(44);
+
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      if (buttonState == LOW) {
+        pattern++;
+        if (pattern > 6) pattern = 0;
+      }
+    }
+  }
+
+  lastButtonState = reading;
+
+  switch (pattern) {
+    case 1:
+      //Serial.println("red");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("red        ");
+      color=1;
+      break;
+    case 2:
+      //Serial.println("blue");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("blue      ");
+      color=2;
+      break;
+    case 3:
+      //Serial.println("green");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("green      ");
+      color=3;
+      break;
+    case 4:
+      //Serial.println("orange");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("yellow       ");
+      color=4;
+      break;
+    case 5:
+      //Serial.println("purple");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3);
+      lcd.print("orange       ");
+      color=5;
+      break;
+    case 6:
+      //Serial.println("purple");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3);
+      lcd.print("purple       ");
+      color=6;
+      break;
+
+  }
+     
+  
+
+  if(color==1 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("red1");
+    delay(100);
+            red_first = true;
+            red1=255; green1=0; blue1=0;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = RED");
+            delay(2000);
+  }
+  else if(color==2 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("blue1");
+    delay(100);
+            blue_first = true;
+            red1=0; green1=0; blue1=255;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = BLUE");
+            delay(2000);
+  }
+  else if(color==3 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("green1");
+    delay(100);
+            green_first = true;
+            red1=0; green1=255; blue1=0;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = GREEN");
+            delay(2000);
+  }
+  else if(color==4 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("yellow1");
+    delay(100);
+            yellow_first = true;
+            red1=212; green1=255; blue1=0;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = YELLOW");
+            delay(2000);
+  }
+  else if(color==5 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("orange1");
+    delay(100);
+            orange_first = true;
+            red1=255; green1=79; blue1=0;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = ORANGE");
+            delay(2000);
+  
+  }
+  else if(color==6 && digitalRead(45)==LOW){
+    //player1=true;
+    Serial.println("purple1");
+    delay(100);
+            purple_first = true;
+            red1=160; green1=32; blue1=240;
+            lcd.setCursor(0, 0); 
+            lcd.print("player 1 = PURPLE");
+            delay(2000);
+  
+  }
+
+        
+    }
+    
+    else if(!red_second&& !blue_second && !green_second && !yellow_second && !orange_second && !purple_second){
+        
+        lcd.setCursor(0, 1); 
+        lcd.print("player 2 = ");
+        
+        if(pattern2== 0){
+          lcd.setCursor(0, 2); 
+          lcd.print("Select player 2 ");
+          lcd.setCursor(0, 3); 
+          lcd.print("     ");
+          lcd.setCursor(5, 3); 
+          lcd.print("color");
+
+        }
+
+              int reading = digitalRead(44);
+
+  if (reading != lastButtonState) {
+    lastDebounceTime = millis();
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    if (reading != buttonState) {
+      buttonState = reading;
+
+      if (buttonState == LOW) {
+        pattern2++;
+        if (pattern2 > 6) pattern2 = 0;
+      }
+    }
+  }
+
+  lastButtonState = reading;
+
+  switch (pattern2) {
+    case 1:
+      //Serial.println("red");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("red           ");
+      color=11;
+      break;
+    case 2:
+      //Serial.println("blue");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("blue          ");
+      color=12;
+      break;
+    case 3:
+      //Serial.println("green");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("green         ");
+      color=13;
+      break;
+    case 4:
+      //Serial.println("orange");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("yellow        ");
+      color=14;
+      break;
+    case 5:
+      //Serial.println("purple");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("orange          ");
+      color=15;
+      break;
+    case 6:
+      //Serial.println("purple");
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("purple          ");
+      color=16;
+      break;
+    
+
+  
+  }
+
+  if(color==11 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("red2");
+    delay(100);
+            red_second = true;
+            red2=255; green2=0; blue2=0;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = RED");
+            delay(2000);
+  }
+  else if(color==12 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("blue2");
+    delay(100);
+            blue_second = true;
+            red2=0; green2=0; blue2=255;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = BLUE");
+            delay(2000);
+  }
+  else if(color==13 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("green2");
+    delay(100);
+            green_second = true;
+            red2=0; green2=255; blue2=0;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = GREEN");
+            delay(2000);
+  }
+  else if(color==14 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("yellow2");
+     delay(100);
+            yellow_second = true;
+            red2=212; green2=255; blue2=0;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = YELLOW");
+            delay(2000);
+  }
+  else if(color==15 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("orange2");
+    delay(100);
+            orange_second = true;
+            red2=255; green2=79; blue2=0;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = ORANGE");
+            delay(2000);
+  }
+  else if(color==16 && digitalRead(45)==LOW){
+    //player2=true;
+    Serial.println("purple2");
+    delay(100);
+            purple_second = true;
+            red2=160; green2=32; blue2=240;
+            lcd.setCursor(0, 1); 
+            lcd.print("player 2 = PURPLE");
+            delay(2000);
+  }
+
+        
+        
+    }
+    else if((red_first || blue_first || green_first || yellow_first || orange_first || purple_first)  && (red_second || blue_second || green_second || yellow_second || orange_second || purple_second)){
+      
+          //display
+    if(!button1_first && !button2_first){
+      
+      lcd.setCursor(0, 0); 
+      lcd.print("                    ");
+      
+      lcd.setCursor(0, 2); 
+      lcd.print("                    ");
+      lcd.setCursor(0, 3); 
+      lcd.print("                    ");
+
+     
+      lcd.setCursor(0, 1); 
+      lcd.print("single    "); 
+
+      lcd.setCursor(10, 1); 
+      lcd.print("double ");
+     
+    }
+
+    
+    if (digitalRead(44) == LOW) {
+      delay(100);
+    if (!button1_first && !button2_first ) {
+      
+      button1_first = true;
+      delay(100);
+      lcd.setCursor(0, 1); 
+      lcd.print("easy  "); 
+
+      lcd.setCursor(10, 1); 
+      lcd.print("hard  ");
+
+    } 
+    else if (button1_first  || button2_first ) { 
+      
+      button1_second = true;
+      delay(100);
+    } 
+    
+    
+  }
+  
+
+  // Check button 2
+  if (digitalRead(45) == LOW) {
+    delay(100);
+    if (!button2_first && !button1_first ) {
+      button2_first = true;
+
+      delay(100);
+      lcd.setCursor(0, 1); 
+      lcd.print("no rfid   "); 
+
+      lcd.setCursor(10, 1); 
+      lcd.print("rfid  ");
+
+    } else if (button2_first  || button1_first ) { 
+      button2_second = true;
+      delay(100);
+      
+    } 
+    
+    
+  }
+  
+
+  
+  //hard single player mode
+  if(button1_first && button2_second){
+    mode=2;
+    if (countc == 0 ) // 
+    {
+     lcd.setCursor(0, 1); 
+    lcd.print("  Hard single  "); 
+    lcd.setCursor(3, 2); 
+    lcd.print("player mode"); 
+     countc++; 
+    
+
+     
+    }
+      //Reading status of the sensors
+  time();
+
+  // Player move detection
+  if (s2 == HIGH && s2_flag == false) {
+    recordTime();
+    turn_start_time = millis(); 
+    makeMove(0, true);
+  } else if (s3 == HIGH && s3_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(1, true);
+  } else if (s4 == HIGH && s4_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(2, true);
+  } else if (s5 == HIGH && s5_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(3, true);
+  } else if (s6 == HIGH && s6_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(4, true);
+  } else if (s7 == HIGH && s7_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(5, true);
+  } else if (s8 == HIGH && s8_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(6, true);
+  } else if (s9 == HIGH && s9_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(7, true);
+  } else if (s10 == HIGH && s10_flag == false) {
+    recordTime();
+     turn_start_time = millis();
+    makeMove(8, true);
+  }
+
+  // Check if someone won the match
+  winner = check();
+  if (winner != "0") {
+    handleWin(winner);
+  } else if (countx < 9 && count % 2 == 1) {
+    recordTime();
+    aiMove();
+  } else if (countx == 9) {
+    Serial.println("Draw match!!");
+    handleDraw();
+  }
+
+  
+  }
+
+  //easy single player mode
+  else if(button1_first && button1_second){
+    mode=1 ;
+    if (countc == 0 ) // 
+    {
+     lcd.setCursor(0, 1); 
+    lcd.print("  Easy single  "); 
+    lcd.setCursor(3, 2); 
+    lcd.print("player mode"); 
+     countc++; 
+    
+    
+
+     
+    }
+
+    //Reading status of the sensors
+   s2 = !digitalRead(2);
+  s3 = !digitalRead(3);
+  s4 = !digitalRead(4);
+  s5 = !digitalRead(5);
+  s6 = !digitalRead(6);
+  s7 = !digitalRead(7);
+  s8 = !digitalRead(8);
+  s9 = !digitalRead(9);
+  s10 = !digitalRead(10);
+   unsigned long time_elapsed = millis() - turn_start_time;
+  unsigned long time_remaining = (turn_timeout - time_elapsed) / 1000;
+if(count%2==1){
+  lcd.setCursor(0, 2);
+  lcd.print("player    1 chance: ");
+ 
+
+}
+else{
+  lcd.setCursor(0, 2);
+  lcd.print("player   2 chance: ");
+ 
+}
+  lcd.setCursor(0, 3);
+  lcd.print("Time left: ");
+  lcd.print(time_remaining);
+  lcd.print("s         ");
+  lcd.setCursor(3,0);
+  lcd.print("Round: ");
+  lcd.print(play+1); 
+  // Player move detection
+  if ((millis() - turn_start_time) > turn_timeout) {
+    // If the current player's turn has timed out, skip to the next player
+    Serial.println("Turn timed out, skipping to next player.");
+    count++;
+    turn_start_time = millis();
+     // Reset the timer for the next turn
+  }
+  
+  // Player move detection
+  if (s2 == HIGH && s2_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(0, true);
+  } else if (s3 == HIGH && s3_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(1, true);
+  } else if (s4 == HIGH && s4_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(2, true);
+  } else if (s5 == HIGH && s5_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(3, true);
+  } else if (s6 == HIGH && s6_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(4, true);
+  } else if (s7 == HIGH && s7_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(5, true);
+  } else if (s8 == HIGH && s8_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(6, true);
+  } else if (s9 == HIGH && s9_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(7, true);
+  } else if (s10 == HIGH && s10_flag == false) {
+    recordTime();
+    turn_start_time = millis();
+    makeMove(8, true);
+  }
+
+  // Check if someone won the match
+  winner = check();
+  if (winner != "0") {
+    handleWin(winner);
+  } else if (countx < 9 && count % 2 == 1) {
+    recordTime();
+    aiMove_easy();
+  } else if (countx == 9) {
+    Serial.println("Draw match!!");
+    handleDraw();
+  }
+  }
+
+
+  //double player mode without RFID sensors
+  else if(button2_first && button1_second){
+    mode=4;
+     if (countc == 0 ) // 
+    {
+     lcd.setCursor(0, 1); 
+    lcd.print("  No Rfid double  "); 
+    lcd.setCursor(3, 2); 
+    lcd.print("player mode"); 
+     countc++; 
+    
+     
+    }
+    
+    
+    //Reading status of the sensors
+  time();
+    
+ 
+
+   if (s2 == HIGH && s2_flag == false )
+  {
+    s2_flag = true ;
+    countx++;
+    count ++;
+    recordTime();
+    turn_start_time = millis();
+
+    if (count % 2 == 0 ) // if count is even, it's GREEN
+    {
+      tictac[0] = 5 ; 
+      lightUpRange(0, 4, strip.Color(red1, green1, blue1));
+      Serial.println("Green 00");
+      beep();
+     
+    }
+    else  // if count is odd, it's RED
+    {
+      tictac[0] = 1 ; 
+      lightUpRange(0, 4, strip.Color(red2, green2, blue2));
+      Serial.println("Red 00");
+      beep();
+     
+    }
+  }
+
+  else if (s3 == HIGH && s3_flag == false )
+  {
+    s3_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+      tictac[1] = 5 ; 
+      lightUpRange(5, 9, strip.Color(red1, green1, blue1));
+      Serial.println("Green 10");
+      beep();
+    
+    }
+    else
+    {
+      tictac[1] = 1 ; 
+       lightUpRange(5, 9, strip.Color(red2, green2, blue2));
+      Serial.println("REd 10");
+      beep();
+    
+    }
+  }
+
+  else if (s4 == HIGH && s4_flag == false )
+  {
+    s4_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+       tictac[2] = 5 ; 
+       lightUpRange(10,14, strip.Color(red1, green1, blue1));
+      Serial.println("Green 20");
+      beep();
+   
+    }
+    else
+    {
+      tictac[2] = 1 ; 
+       lightUpRange(10,14, strip.Color(red2, green2, blue2));
+      Serial.println("Red 20");
+      beep();
+      
+    }
+  }
+   else if (s5 == HIGH && s5_flag == false )
+  {
+    s5_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+       tictac[3] = 5 ; 
+      lightUpRange(15, 19, strip.Color(red1, green1, blue1));
+      Serial.println("Green 30");
+      beep();
+   
+    }
+    else
+    {
+      tictac[3] = 1 ;  
+      lightUpRange(15, 19, strip.Color(red2, green2, blue2));
+      Serial.println("Red 30");
+      beep();
+      
+    }
+  }
+   else if (s6 == HIGH && s6_flag == false )
+  {
+    s6_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+       tictac[4] = 5 ; 
+       lightUpRange(20, 24, strip.Color(red1, green1, blue1));
+      Serial.println("Green 40");
+      beep();
+   
+    }
+    else
+    {
+      tictac[4] = 1 ; 
+      lightUpRange(20,24, strip.Color(red2, green2, blue2));
+      Serial.println("Red 40");
+      beep();
+      
+    }
+  }
+   else if (s7 == HIGH && s7_flag == false )
+  {
+    s7_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+      tictac[5] = 5 ; 
+      lightUpRange(25, 29, strip.Color(red1, green1, blue1));
+      Serial.println("Green 50");
+      beep();
+   
+    }
+    else
+    {
+      tictac[5] = 1 ; 
+      lightUpRange(25, 29, strip.Color(red2, green2, blue2));
+      Serial.println("Red 50");
+      beep();
+      
+    }
+  }
+   else if (s8 == HIGH && s8_flag == false )
+  {
+    s8_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+      tictac[6] = 5 ; 
+      lightUpRange(30, 34, strip.Color(red1, green1, blue1));
+      Serial.println("Green 60");
+      beep();
+   
+    }
+    else
+    {
+      tictac[6] = 1 ; 
+      lightUpRange(30,34, strip.Color(red2, green2, blue2));
+      Serial.println("Red 60");
+      beep();
+      
+    }
+  }
+   else if (s9 == HIGH && s9_flag == false )
+  {
+    s9_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+       tictac[7] = 5 ; 
+      lightUpRange(35, 39, strip.Color(red1, green1, blue1));
+      Serial.println("Green 70");
+      beep();
+   
+    }
+    else
+    {
+      tictac[7] = 1 ; 
+      lightUpRange(35,39, strip.Color(red2, green2, blue2));
+      Serial.println("Red 70");
+      beep();
+      
+    }
+  }
+   else if (s10 == HIGH && s10_flag == false )
+  {
+    s10_flag = true ;
+    count ++ ;
+    countx++;
+    recordTime();
+    turn_start_time = millis();
+    if (count % 2 == 0 )
+    {
+       tictac[8] = 5 ; 
+       lightUpRange(40,44, strip.Color(red1, green1, blue1));
+      Serial.println("Green 80");
+      beep();
+   
+    }
+    else
+    {
+      tictac[8] = 1 ; 
+     lightUpRange(40,44, strip.Color(red2, green2, blue2));
+      Serial.println("Red 80");
+      beep();
+      
+    }
+  }
+  cal();
+
+
+  }
+ // double plyer mode with RFID sensor
+  else if(button2_first && button2_second){
+ mode=3;
+  //display mode
+  if (countc == 0 ) // 
+    {
+  lcd.setCursor(0, 1); 
+  lcd.print("Rfid double player   "); 
+  lcd.setCursor(6, 2); 
+  lcd.print("mode"); 
+  countc++;
+    }
+    
+  readRFID(mfrc522_1, "Reader 1");
+  readRFID(mfrc522_2, "Reader 2");
+  delay(100); // Add delay to prevent constant reading
+ 
+  //Reading status of the sensors
+ time();
+
+ 
+
+  if (s2 == HIGH && s2_flag == false && !cardUID.equals("") )
+  {
+    if (!cardUID.equals(lastCardUID)) {
+      s2_flag = true ;
+      count ++;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+
+      if (cardUID.equals(card1)) // if count is even, it's GREEN
+      {
+      tictac[0] = 5 ; 
+      lightUpRange(0, 4, strip.Color(red1, green1, blue1));
+      Serial.println("Green 00");
+      beep();
+     
+      }
+      else if(cardUID.equals(card2)) // if count is odd, it's RED
+      {
+        tictac[0] = 1 ; 
+      lightUpRange(0, 4, strip.Color(red2, green2, blue2));
+      Serial.println("Red 00");
+      beep();
+     
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+
+    }
+    
+  }
+
+  else if (s3 == HIGH && s3_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s3_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+         tictac[1] = 5 ; 
+      lightUpRange(5, 9, strip.Color(red1, green1, blue1));
+      Serial.println("Green 10");
+      beep();
+    
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[1] = 1 ; 
+       lightUpRange(5, 9, strip.Color(red2, green2, blue2));
+      Serial.println("REd 10");
+      beep();
+    
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+
+  else if (s4 == HIGH && s4_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s4_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+        tictac[2] = 5 ; 
+       lightUpRange(10, 14, strip.Color(red1, green1, blue1));
+      Serial.println("Green 20");
+      beep();
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[2] = 1 ; 
+       lightUpRange(10, 14, strip.Color(red2, green2, blue2));
+      Serial.println("Red 20");
+      beep();
+      
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s5 == HIGH && s5_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s5_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+         tictac[3] = 5 ; 
+      lightUpRange(15, 19, strip.Color(red1, green1, blue1));
+      Serial.println("Green 30");
+      beep();
+   
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[3] = 1 ;  
+      lightUpRange(15, 19, strip.Color(red2, green2, blue2));
+      Serial.println("Red 30");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s6 == HIGH && s6_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s6_flag = true ;
+      countx++;
+      count ++ ;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+        tictac[4] = 5 ; 
+       lightUpRange(20, 24, strip.Color(red1, green1, blue1));
+      Serial.println("Green 40");
+      beep();
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+       tictac[4] = 1 ; 
+      lightUpRange(20, 24, strip.Color(red2, green2, blue2));
+      Serial.println("Red 40");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s7 == HIGH && s7_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s7_flag = true ;
+       count ++ ;
+      countx++;
+       recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+        tictac[5] = 5 ; 
+      lightUpRange(25, 29, strip.Color(red1, green1, blue1));
+      Serial.println("Green 50");
+      beep();
+   
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[5] = 1 ; 
+      lightUpRange(25, 29, strip.Color(red2, green2, blue2));
+      Serial.println("Red 50");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s8 == HIGH && s8_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s8_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+       tictac[6] = 5 ; 
+       lightUpRange(30,34, strip.Color(red1, green1, blue1));
+      Serial.println("Green 60");
+      beep();
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[6] = 1 ; 
+      lightUpRange(30,34, strip.Color(red2, green2, blue2));
+      Serial.println("Red 60");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s9 == HIGH && s9_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s9_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+         tictac[7] = 5 ; 
+      lightUpRange(35, 39, strip.Color(red1, green1, blue1));
+      Serial.println("Green 70");
+      beep();
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[7] = 1 ; 
+      lightUpRange(35,39, strip.Color(red2, green2, blue2));
+      Serial.println("Red 70");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+   else if (s10 == HIGH && s10_flag == false && !cardUID.equals(""))
+  {
+    if (!cardUID.equals(lastCardUID)){
+      s10_flag = true ;
+      count ++ ;
+      countx++;
+      recordTime();
+    turn_start_time = millis();
+      if (cardUID.equals(card1) )
+      {
+       tictac[8] = 5 ; 
+       lightUpRange(40, 44, strip.Color(red1, green1, blue1));
+      Serial.println("Green 80");
+      beep();
+   
+   
+      }
+      else if(cardUID.equals(card2))
+      {
+        tictac[8] = 1 ; 
+     lightUpRange(40, 44, strip.Color(red2, green2, blue2));
+      Serial.println("Red 80");
+      beep();
+      
+      }
+      lastCardUID = cardUID; // Update the last card played
+      cardUID = ""; // Reset cardUID after processing
+    }
+    
+  }
+
+ // Checking if anyone won the match
+cal();
+
+
+
+  }
+    
+    }
+
+
+    //led stript,
+
+
+
+
+
+}
+// Checking if anyone won the match
+String check ()
+{
+
+  // ---------------------------------------------  RED WINS
+  if ( (tictac[0] + tictac[1] + tictac[2]) == 3 )
+  {
+    return "r1";
+  }
+  if ((tictac[3] + tictac[4] + tictac[5]) == 3 )
+  {
+    return "r2";
+  }
+  if ((tictac[6] + tictac[7] + tictac[8]) == 3 )
+  {
+    return "r3";
+  }
+  if ((tictac[0] + tictac[3] + tictac[6]) == 3 )
+  {
+    return "r4";
+  }
+  if ((tictac[1] + tictac[4] + tictac[7]) == 3 )
+  {
+    return "r5";
+  }
+  if ((tictac[2] + tictac[5] + tictac[8]) == 3 )
+  {
+    return "r6";
+  }
+  if ((tictac[0] + tictac[4] + tictac[8]) == 3 )
+  {
+    return "r7";
+  }
+  if ((tictac[2] + tictac[4] + tictac[6]) == 3 )
+  {
+    return "r8";
+  }
+
+
+
+
+  // ---------------------------------------------  GREEN WINS
+
+  if ((tictac[0] + tictac[1] + tictac[2]) == 15 )
+  {
+    return "g1";
+  }
+
+  if ((tictac[3] + tictac[4] + tictac[5]) == 15 )
+  {
+    return "g2";
+  }
+  if ((tictac[6] + tictac[7] + tictac[8]) == 15 )
+  {
+    return "g3";
+  }
+  if ((tictac[0] + tictac[3] + tictac[6]) == 15 )
+  {
+    return "g4";
+  }
+  if ((tictac[1] + tictac[4] + tictac[7]) == 15 )
+  {
+    return "g5";
+  }
+  if ((tictac[2] + tictac[5] + tictac[8]) == 15 )
+  {
+    return "g6";
+  }
+  if ((tictac[0] + tictac[4] + tictac[8]) == 15 )
+  {
+    return "g7";
+  }
+  if ((tictac[2] + tictac[4] + tictac[6]) == 15 )
+  {
+    return "g8";
+  }
+
+
+  // --------------------------------------------- Now one WON Yet
+  else
+    return "0" ;
+
+}
+
+
+// ---------------------------------------------  Resetting the Board after the Games gets over
+void resett() {
+  digitalWrite(RESET_PIN, LOW);
+  delay(100);
+  digitalWrite(RESET_PIN, HIGH);
+}
+
+
+// ---------------------------------------------  Short Beep
+void beep()
+{
+  digitalWrite(buzzer, HIGH);
+  delay(200);
+  digitalWrite(buzzer, LOW);
+}
+
+// ---------------------------------------------  Long Beep
+void long_beep()
+{
+  digitalWrite(buzzer, HIGH);
+  delay(500);
+  digitalWrite(buzzer, LOW);
+}
+void cal(){
+  winner = check(); // Checking if anyone won the match
+
+
+  if (winner == "r1")
+  {
+
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+    {
+
+
+      RED_WIN_1();
+
+    }
+
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r2")
+  {
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_2();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r3")
+  {
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_3();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r4")
+  {
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_4();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r5")
+  {
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_5();
+
+    winner_flag = true  ;
+  }
+   
+  if (winner == "r6")
+  {
+     P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_6();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r7")
+  {
+    P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_7();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "r8")
+  { P1_points+=100;
+    Serial.println("RED wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      RED_WIN_8();
+
+    winner_flag = true  ;
+  }
+
+
+
+
+  if (winner == "g1")
+  {
+   P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_1();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g2")
+  {
+   P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_2();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g3")
+  {
+    P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_3();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g4")
+  {
+    P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_4();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g5")
+  {
+    P2_points+=100;
+
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_5();
+
+    winner_flag = true  ;
+  }
+ 
+  if (winner == "g6")
+  {
+   P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_6();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g7")
+  {
+    P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_7();
+
+    winner_flag = true  ;
+  }
+
+  if (winner == "g8")
+  {
+    P2_points+=100;
+    Serial.println("GREEN wins ! ");
+
+    for (int i = 0; i < 5; i++)
+      GREEN_WIN_8();
+
+    winner_flag = true  ;
+  }
+
+  // ---------------------------------------------  It's a DRAW match
+ if (winner == "0" && countx == 9 )
+  {
+    P2_points+=50;
+    P1_points+=50;
+    Serial.println(" Draw match !! ") ;
+    winner_flag = true ;
+    for (int k = 0 ; k < 5 ; k++)
+    {
+      lightUpRange(0,44, strip.Color(255, 255,255));
+      delay(500);
+      
+      turnOffRange(0,44);
+      beep();
+      
+    }
+     playround();
+  }
+
+  if (winner_flag == true )
+  { playround();
+  }
+}
+void condition(){
+s2_flag = s3_flag = s4_flag = s5_flag = s6_flag = s7_flag =s8_flag = s9_flag =s10_flag =winner_flag= false ;
+
+  for (int i = 0 ; i < 9 ; i++) //clearing the array on reset
+    tictac[i] = 0 ;
+    count=1;
+    turnOffRange(0,44);
+    countx=0;
+   turn_start_time = millis();  
+}
+
+
+
+
+void RED_WIN_1() { flashWinningCombination(0, 1, 2, strip.Color(red2, green2, blue2)); }
+void RED_WIN_2() { flashWinningCombination(3, 4, 5, strip.Color(red2, green2, blue2)); }
+void RED_WIN_3() { flashWinningCombination(6, 7, 8, strip.Color(red2, green2, blue2)); }
+void RED_WIN_4() { flashWinningCombination(0, 3, 6, strip.Color(red2, green2, blue2)); }
+void RED_WIN_5() { flashWinningCombination(1, 4, 7, strip.Color(red2, green2, blue2)); }
+void RED_WIN_6() { flashWinningCombination(2, 5, 8, strip.Color(red2, green2, blue2)); }
+void RED_WIN_7() { flashWinningCombination(0, 4, 8, strip.Color(red2, green2, blue2)); }
+void RED_WIN_8() { flashWinningCombination(2, 4, 6, strip.Color(red2, green2, blue2)); }
+
+void GREEN_WIN_1() { flashWinningCombination(0, 1, 2, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_2() { flashWinningCombination(3, 4, 5, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_3() { flashWinningCombination(6, 7, 8, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_4() { flashWinningCombination(0, 3, 6, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_5() { flashWinningCombination(1, 4, 7, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_6() { flashWinningCombination(2, 5, 8, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_7() { flashWinningCombination(0, 4, 8, strip.Color(red1, green1, blue1)); }
+void GREEN_WIN_8() { flashWinningCombination(2, 4, 6, strip.Color(red1, green1, blue1)); }
+
+
+
+void readRFID(MFRC522 &rfid, String reader) {
+  // Look for new cards
+  if (!rfid.PICC_IsNewCardPresent()) {
+    return;
+  }
+
+  // Select one of the cards
+  if (!rfid.PICC_ReadCardSerial()) {
+    return;
+  }
+
+  // Show UID on serial monitor
+  Serial.print(reader + " - Card UID: ");
+  cardUID = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) {
+      cardUID += "0"; // Prepend a '0' to single hex digits
+    }
+    cardUID += String(rfid.uid.uidByte[i], HEX);
+  }
+  cardUID.toUpperCase(); // Convert to uppercase
+  Serial.println(cardUID);
+
+  rfid.PICC_HaltA(); // Halt PICC
+  rfid.PCD_StopCrypto1(); // Stop encryption on PCD
+}
+
+
+
+
+void time(){
+  s2 = !digitalRead(2);
+  s3 = !digitalRead(3);
+  s4 = !digitalRead(4);
+  s5 = !digitalRead(5);
+  s6 = !digitalRead(6);
+  s7 = !digitalRead(7);
+  s8 = !digitalRead(8);
+  s9 = !digitalRead(9);
+  s10 = !digitalRead(10);
+   unsigned long time_elapsed = millis() - turn_start_time;
+  unsigned long time_remaining = (turn_timeout - time_elapsed) / 1000;
+if(count%2==1){
+  lcd.setCursor(0, 2);
+  lcd.print("player    1 chance: ");
+ 
+
+}
+else{
+  lcd.setCursor(0, 2);
+  lcd.print("player   2 chance: ");
+ 
+}
+  lcd.setCursor(0, 3);
+  lcd.print("Time left: ");
+  lcd.print(time_remaining);
+  lcd.print("s         ");
+  lcd.setCursor(3,0);
+  lcd.print("Round: ");
+  lcd.print(play+1); 
+  // Player move detection
+  if ((millis() - turn_start_time) > turn_timeout) {
+    // If the current player's turn has timed out, skip to the next player
+    Serial.println("Turn timed out, skipping to next player.");
+    count++;
+    turn_start_time = millis();
+     // Reset the timer for the next turn
+  }
+}
+void makeMove(int index, bool isPlayer) {
+  if (index < 0 || index >= 9 || tictac[index] != 0) return;
+  
+  if (isPlayer) {
+    if (index == 0) s2_flag = true;
+    if (index == 1) s3_flag = true;
+    if (index == 2) s4_flag = true;
+    if (index == 3) s5_flag = true;
+    if (index == 4) s6_flag = true;
+    if (index == 5) s7_flag = true;
+    if (index == 6) s8_flag = true;
+    if (index == 7) s9_flag = true;
+    if (index == 8) s10_flag = true;
+  }
+  
+  count++;
+  countx++;
+  uint32_t color;
+  if (count % 2 == 0) {
+    tictac[index] = 5; // GREEN
+    color = strip.Color(red1, green1, blue1); // Green
+    Serial.print("Green ");
+  } else {
+    tictac[index] = 1; // RED
+    color = strip.Color(red2, green2, blue2); // Red
+    Serial.print("Red ");
+  }
+
+  for (int i = 0; i < 5; i++) {
+    strip.setPixelColor(index * 5 + i, color);
+  }
+  strip.show(); // Update strip to show new colors
+  Serial.println(String(index / 5) + String(index % 3));
+  beep();
+}
+
+void aiMove() {
+  // AI tries to win
+  int move = findWinningMove(5);
+  if (move == -1) {
+    // AI tries to block player from winning
+    move = findWinningMove(1);
+  }
+  if (move == -1) {
+    // AI makes a strategic move
+    move = findStrategicMove();
+  }
+  makeMove(move, false);
+}
+
+int findWinningMove(int player) {
+  int wins[8][3] = {
+    {0, 1, 2}, {3, 4, 5}, {6, 7, 8}, // rows
+    {0, 3, 6}, {1, 4, 7}, {2, 5, 8}, // columns
+    {0, 4, 8}, {2, 4, 6}             // diagonals
+  };
+  
+  for (int i = 0; i < 8; i++) {
+    int sum = tictac[wins[i][0]] + tictac[wins[i][1]] + tictac[wins[i][2]];
+    if (sum == 2 * player) {
+      if (tictac[wins[i][0]] == 0) return wins[i][0];
+      if (tictac[wins[i][1]] == 0) return wins[i][1];
+      if (tictac[wins[i][2]] == 0) return wins[i][2];
+    }
+  }
+  return -1;
+}
+
+int findStrategicMove() {
+  // Prefer center, then corners, then edges
+  int priority[9] = {4, 0, 2, 6, 8, 1, 3, 5, 7};
+  for (int i = 0; i < 9; i++) {
+    if (tictac[priority[i]] == 0) return priority[i];
+  }
+  return -1;
+}
+
+
+
+void handleWin(String winner) {
+  Serial.println((winner.startsWith("r") ? "RED" : "GREEN") + String(" wins!"));
+  if (winner.startsWith("r")){
+     P1_points+=100;
+  }
+  else{
+    P2_points+=100;
+  }
+  for (int i = 0; i < 5; i++) {
+    if (winner.startsWith("r")) {
+      if (winner == "r1") RED_WIN_1();
+      if (winner == "r2") RED_WIN_2();
+      if (winner == "r3") RED_WIN_3();
+      if (winner == "r4") RED_WIN_4();
+      if (winner == "r5") RED_WIN_5();
+      if (winner == "r6") RED_WIN_6();
+      if (winner == "r7") RED_WIN_7();
+      if (winner == "r8") RED_WIN_8();
+    } else {
+      if (winner == "g1") GREEN_WIN_1();
+      if (winner == "g2") GREEN_WIN_2();
+      if (winner == "g3") GREEN_WIN_3();
+      if (winner == "g4") GREEN_WIN_4();
+      if (winner == "g5") GREEN_WIN_5();
+      if (winner == "g6") GREEN_WIN_6();
+      if (winner == "g7") GREEN_WIN_7();
+      if (winner == "g8") GREEN_WIN_8();
+    }
+  }
+  winner_flag = true;
+  Serial.println("resetting..");
+  playround();
+}
+
+void handleDraw() {
+  P2_points+=50;
+  P1_points+=50;
+  winner_flag = true;
+  for (int k = 0; k < 5; k++) {
+    for (int i = 0; i < 45; i++) {
+      strip.setPixelColor(i, strip.Color(255, 255, 255)); // Set pixel to white
+    }
+    strip.show();
+    delay(300);
+    for (int i = 0; i < 45; i++) {
+      strip.setPixelColor(i, strip.Color(0, 0, 0)); // Turn off pixel
+    }
+    strip.show();
+    beep();
+  }
+  Serial.println("resetting..");
+  playround();
+}
+
+
+void flashWinningCombination(int a, int b, int c, uint32_t color) {
+  for (int i = 0; i < 1; i++) {
+    for (int j = 0; j < 5; j++) {
+      strip.setPixelColor(a * 5 + j, color);
+      strip.setPixelColor(b * 5 + j, color);
+      strip.setPixelColor(c * 5 + j, color);
+      
+    }
+    strip.show();
+    delay(300);
+    for (int j = 0; j < 5; j++) {
+      strip.setPixelColor(a * 5 + j, 0); // Turn off the pixel
+      strip.setPixelColor(b * 5 + j, 0); // Turn off the pixel
+      strip.setPixelColor(c * 5 + j, 0); // Turn off the pixel
+    }
+     long_beep();
+    strip.show();
+    delay(300);
+  }
+ 
+}
+
+void lightUpRange(int start, int end, uint32_t color) {
+  for (int i = start; i <= end; i++) {
+    strip.setPixelColor(i, color);
+  }
+  strip.show();
+}
+
+void turnOffRange(int start, int end) {
+  for (int i = start; i <= end; i++) {
+    strip.setPixelColor(i, 0, 0, 0); // Set color to black (off)
+  }
+  strip.show();
+}
+
+
+
+void aiMove_easy() {
+  // AI logic for easy mode
+  int move = randomMove();
+ 
+  makeMove(move, false);
+}
+
+int randomMove() {
+  // Randomly choose an empty cell
+  while (true) {
+    int index = random(0, 9); // Generate random index from 0 to 8
+    if (tictac[index] == 0) return index; // Return the index if the cell is empty
+  }
+}
+void recordTime()
+{
+  unsigned long move_time = (millis() - turn_start_time) / 1000;
+  unsigned long move_ream=10-move_time;
+  if (count % 2 == 1) {
+    P2_points=P2_points+move_ream;
+  
+
+
+  } else {
+     P1_points=P1_points+move_ream;
+
+   
+
+  }
+}
+void playround(){
+   play++;
+    if(play>2){
+      if( P2_points<P1_points){
+        marks=P1_points;
+        lcd.clear();
+         lcd.setCursor(0, 1); 
+         lcd.print("player 2 win score "); 
+         lcd.setCursor(0, 2); 
+         lcd.print(P1_points); 
+         delay(3000);
+      if (!initialSent) {
+    // Send mode and marks in the format "mode,marks"
+         Serial2.print(mode);
+         Serial2.print(",");
+         Serial2.println(marks);
+         initialSent = true;
+  }    delay(1000) ;
+  while (Serial2.available() > 0 && !processCompleted) {
+    lcd.clear();
+    lcd.setCursor(0, 0);  // Set cursor to the first line
+    lcd.print("Receiving data...");
+    for (int i = 0; i < 4; i++) {
+      receivedScores[i] = Serial2.parseInt();  // Read scores from ESP32
+      Serial2.print("High ");
+      Serial2.print(i + 1);
+      Serial2.print(": ");
+      Serial2.println(receivedScores[i]);  // Display final marks on the serial monitor
+    }
+     for (int i = 0; i < 4; i++) {
+       // Set cursor to the current line
+      
+       // Wait for 2 seconds before displaying the next score
+      
+    }
+    processCompleted = true;
+    delay(5000);
+      }
+       while (Serial2.available() > 0 && !processCompleted2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);  // Set cursor to the first line
+    lcd.print("Receiving data...");
+    for (int i = 0; i < 4; i++) {
+      receivedScores[i] = Serial2.parseInt();  // Read scores from ESP32
+      Serial2.print("High ");
+      Serial2.print(i + 1);
+      Serial2.print(": ");
+      Serial2.println(receivedScores[i]);  // Display final marks on the serial monitor
+    }
+     lcd.clear();
+      for (int i = 0; i < 4; i++) {
+       // Set cursor to the current line
+      lcd.setCursor(0, i); 
+      lcd.print("High ");
+      lcd.print(i + 1);
+      lcd.print(": ");
+      lcd.print(receivedScores[i]);
+       // Wait for 2 seconds before displaying the next score
+      
+    }    
+    processCompleted2 = true;
+        delay(7000);
+      }
+      
+    
+         delay(700000);  
+         lcd.clear();
+         resett();
+         
+      }
+        if( P1_points<P2_points){
+        marks=P2_points;
+        lcd.clear();
+        lcd.setCursor(0, 1); 
+        lcd.print("player 1 win  score"); 
+        lcd.setCursor(0, 2); 
+         lcd.setCursor(0, 2); 
+         lcd.print(P2_points); 
+         delay(3000);
+         lcd.clear(); 
+          if (!initialSent) {
+    // Send mode and marks in the format "mode,marks"
+        Serial2.print(mode);
+        Serial2.print(",");
+        Serial2.println(marks);
+        initialSent = true;
+  }   delay(1000) ;
+      while (Serial2.available() > 0 && !processCompleted) {
+    lcd.clear();
+    lcd.setCursor(0, 0);  // Set cursor to the first line
+    lcd.print("Receiving data...");
+    
+    for (int i = 0; i < 4; i++) {
+      receivedScores[i] = Serial2.parseInt();  // Read scores from ESP32
+      Serial2.print("High ");
+      Serial2.print(i + 1);
+      Serial2.print(": ");
+      Serial2.println(receivedScores[i]);  // Display final marks on the serial monitor
+    }
+      for (int i = 0; i < 4; i++) {
+       // Set cursor to the current line
+     
+       // Wait for 2 seconds before displaying the next score
+      
+    }    
+    processCompleted = true;
+      }
+      delay(5000);
+       while (Serial2.available() > 0 && !processCompleted2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);  // Set cursor to the first line
+    lcd.print("Receiving data...");
+    lcd.clear();
+    for (int i = 0; i < 4; i++) {
+      receivedScores[i] = Serial2.parseInt();  // Read scores from ESP32
+      Serial2.print("High ");
+      Serial2.print(i + 1);
+      Serial2.print(": ");
+      Serial2.println(receivedScores[i]);  // Display final marks on the serial monitor
+    }
+     lcd.clear();
+      for (int i = 0; i < 4; i++) {
+       // Set cursor to the current line
+      lcd.setCursor(0, i); 
+      lcd.print("High ");
+      lcd.print(i + 1);
+      lcd.print(": ");
+      lcd.print(receivedScores[i]);
+       // Wait for 2 seconds before displaying the next score
+      
+    }    
+    processCompleted2 = true;
+    delay(7000);
+      }
+        
+     
+       
+         delay(700000);  
+         lcd.clear();
+         resett();
+
+      }
+       resett();
+    }
+    else{
+      condition();
+    }
+}
+
+
+void pattern1(int brightness) {
+  for (int i = 0; i < LED_PATTERN_NUM_LEDS; i++) {
+    // Calculate the RGB values scaled by the brightness
+    int red = map(brightness, 0, 255, 0, 153);
+    int green = map(brightness, 0, 255, 0, 101);
+    int blue = map(brightness, 0, 255, 0, 21);
+    strip2.setPixelColor(i, strip2.Color(red, green, blue));
+  }
+}
+
+
+void pattern22(int brightness) {
+  static uint16_t j = 0; // Used to cycle through the hues
+  for (int i = 0; i < LED_PATTERN_NUM_LEDS; i++) {
+    int pixelHue = (i * 65536L / LED_PATTERN_NUM_LEDS) + j; // Spread hue across LEDs
+    strip2.setPixelColor(i, strip2.ColorHSV(pixelHue, 255, brightness));
+  }
+  j += 256; // Slowly cycle through the rainbow
+}
+
+
+void pattern3(int brightness) {
+  static int breathDirection = 1; // 1 for increasing brightness, -1 for decreasing
+  static int breathBrightness = 0; // Current brightness level for breathing effect
+  static unsigned long lastUpdate = 0; // Timestamp of last update
+  unsigned long currentTime = millis();
+
+  // Update the breathing effect every 20ms
+  if (currentTime - lastUpdate >= 20) {
+    lastUpdate = currentTime;
+
+    // Update brightness level
+    breathBrightness += breathDirection * 5;
+    if (breathBrightness <= 0 || breathBrightness >= brightness) {
+      breathDirection = -breathDirection; // Reverse direction at min/max brightness
+    }
+
+    // Set the color of each LED to the current brightness level
+    for (int i = 0; i < LED_PATTERN_NUM_LEDS; i++) {
+      strip2.setPixelColor(i, strip2.Color(breathBrightness, 0, breathBrightness)); // Purple
+    }
+
+    strip2.show();
+  }
+}
+
+
+void pattern4(int brightness) {
+  static int chaseIndex = 0; // Index for the chase effect
+  static unsigned long lastUpdate = 0; // Timestamp of the last update
+  unsigned long currentTime = millis();
+
+  // Update the chase effect every 100ms
+  if (currentTime - lastUpdate >= 100) {
+    lastUpdate = currentTime;
+    chaseIndex = (chaseIndex + 1) % 3; // Cycle through three positions
+
+    for (int i = 0; i < LED_PATTERN_NUM_LEDS; i++) {
+      int hue = (i * 65536L / LED_PATTERN_NUM_LEDS) + (chaseIndex * 65536L / 3);
+      if ((i % 3) == chaseIndex) {
+        strip2.setPixelColor(i, strip2.ColorHSV(hue, 255, brightness)); // Bright color
+      } else {
+        strip2.setPixelColor(i, 0); // Off
+      }
+    }
+    strip2.show();
+  }
+}
+
+void pattern5(int brightness) {
+  // Calculate the RGB values for pink ruby, scaled by the brightness
+  int red = map(brightness, 0, 255, 0, 255);
+  int green = map(brightness, 0, 255, 0, 105);
+  int blue = map(brightness, 0, 255, 0, 180);
+
+  for (int i = 0; i < LED_PATTERN_NUM_LEDS; i++) {
+    strip2.setPixelColor(i, strip2.Color(red, green, blue)); // Pink ruby color for all LEDs
+  }
+}
